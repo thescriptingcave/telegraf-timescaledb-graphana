@@ -1,0 +1,27 @@
+[project]
+name = "healthcare-timeseries-lab"
+version = "0.2.0"
+description = "Telegraf + TimescaleDB + Grafana: a synthetic ward vitals lab with a 30-day backfilled dataset and a live streaming arm."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "psycopg[binary]>=3.3.5",
+    "python-dotenv>=1.2.3",
+]
+
+[project.scripts]
+healthcare-timeseries-lab = "healthcare_timeseries_lab:main"
+
+[build-system]
+requires = ["uv_build>=0.8.17,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

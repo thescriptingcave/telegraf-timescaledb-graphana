@@ -1,0 +1,15 @@
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Local secrets
+.env
+
+# Runtime state (Telegraf live-stream checkpoints)
+state/
+
+# Local data artifacts
+data/
