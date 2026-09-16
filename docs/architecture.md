@@ -122,6 +122,10 @@ state/                live-checkpoint volume (gitignored)
 
 - **6× real-time live arm**: `SCENARIO_TICK_SECONDS=60` scenario seconds per
   10 s real run advances the feed quickly for demo purposes.
+- **No runtime census lifecycle (1.0)**: `discharged_at` bounds the backfill
+  horizon only; the live arm is a next-day continuation of the same fixed
+  six-patient census — no discharges from the stream, no new admissions (see
+  [synthetic data](synthetic_data.md#census-lifecycle-10-semantics)).
 - **Offline-only tables**: `vitals_truth` and `readings` are populated only by
   the backfill; the live arm writes `vitals` alone (see
   [Data flow](data_flow.md) and [Reliability](reliability.md)).

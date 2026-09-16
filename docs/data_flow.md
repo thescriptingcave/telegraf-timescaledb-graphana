@@ -114,6 +114,12 @@ The live feed continues the timeline immediately after the backfill
 (`2026-01-31T00:00Z` onward), reusing the same deterministic ID scheme so
 retries are idempotent (`ON CONFLICT (time, event_id) DO NOTHING`).
 
+**Census semantics (1.0):** `discharged_at` bounds the backfill only. The
+live arm has no admission/discharge lifecycle — it is a *next-day continuation*
+of the same six-patient census and keeps streaming everyone past their
+recorded discharge so the dashboard remains live. There is no runtime
+admission scheduler (see [synthetic data](synthetic_data.md#census-lifecycle-10-semantics)).
+
 Checkpoints snapshot engine RNG state, device RNG state, the loop RNG, last
 true state, and the oxygen-coupling history — so every run is resumable and
 re-running a checkpoint reproduces the identical tick.

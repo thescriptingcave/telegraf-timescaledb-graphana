@@ -17,6 +17,11 @@ The live feed continues the ward timeline right after the 30-day backfill
 (i.e. from 2026-01-31T00:00Z onward). Runs only need the Python stdlib plus
 the lab source on PYTHONPATH — no database connection.
 
+Census semantics (1.0): the live arm has no admission/discharge lifecycle.
+`discharged_at` in the registry bounds the backfill only; the live arm is a
+next-day continuation of the same six-patient census, so no patient is ever
+"discharged" from the stream and no new patient is admitted at runtime.
+
 Usage (container):  python3 /app/scripts/stream_vitals.py
 Debug (host):       uv run python scripts/stream_vitals.py
 """

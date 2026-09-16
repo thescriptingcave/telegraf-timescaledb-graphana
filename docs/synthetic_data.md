@@ -21,6 +21,18 @@ in `scripts/ward_registry.py`.
 Each patient has baselines for HR, SpO2, RR, temperature, and systolic/
 diastolic BP, plus a `variability_factor`.
 
+### Census lifecycle (1.0 semantics)
+
+`admitted_at`/`discharged_at` bound the **historical (backfill) horizon**:
+the offline loader generates exactly the ticks inside each admission window
+and closes the matching `encounters`. The **live arm**, however, has no
+admission/discharge lifecycle in 1.0 — it is a *next-day ward continuation*
+of the same fixed census. It keeps advancing the same six patients past
+`2026-01-31T00:00Z` (the moment the backfill ends) so the dashboard always
+has a live feed to show. Discharges recorded in the registry therefore apply
+to the backfilled history, not to the live stream; no new patients are
+admitted at runtime.
+
 ## Why "deterministic + seeded"?
 
 Every stochastic component draws from a seeded generator so the *entire
