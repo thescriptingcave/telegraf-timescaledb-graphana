@@ -58,8 +58,23 @@ def main() -> int:
             if truth != expected_truth:
                 print(f"  !! vitals_truth {truth:,} != expected {expected_truth:,}")
                 problems += 1
-            if readings != 6 * truth + 6 * vit:
-                print(f"  !! readings {readings:,} != 6*truth + 6*vitals = {6*truth + 6*vit:,}")
+
+            # readings only records the OFFLINE backfill (live events write
+            # vitals alone). So readings = 6 per truth tick + 6 per backfill
+            # observed event; anything beyond that must sit within the current
+            # vitals count (= backfill events + any live events streamed since).
+            backfill_vitals = readings // 6 - truth
+            if readings < 6 * truth or (readings - 6 * truth) % 6 != 0:
+                print(
+                    f"  !! readings {readings:,} inconsistent with truth {truth:,} "
+                    "(readings must be 6 per truth tick + 6 per observed event)"
+                )
+                problems += 1
+            elif not 0 <= backfill_vitals <= vit:
+                print(
+                    f"  !! readings imply {backfill_vitals:,} observed backfill events, "
+                    f"outside plausible 0..vitals({vit:,})"
+                )
                 problems += 1
             if not (0.70 * expected_truth <= vit <= 0.95 * expected_truth):
                 print(f"  !! vitals {vit:,} outside expected 70-95% of ticks ({expected_truth:,})")

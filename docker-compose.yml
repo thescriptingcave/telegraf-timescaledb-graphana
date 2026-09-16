@@ -25,6 +25,9 @@ services:
     environment:
       TELEGRAF_PGPASSWORD: ${TELEGRAF_PGPASSWORD}
       PYTHONPATH: /app/src:/app
+      # The exec input runs with CWD=/; point STREAM_STATE_DIR at the
+      # mounted volume's absolute in-container path (host ./state).
+      STREAM_STATE_DIR: /app/state
     volumes:
       - ./state:/app/state
       - ./infra/telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
