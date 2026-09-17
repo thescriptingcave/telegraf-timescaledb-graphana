@@ -1,0 +1,330 @@
+{
+  "info": {
+    "name": "Ward Vitals Lab — Grafana API",
+    "description": "Beginner walkthrough of the Grafana REST API for the Ward Vitals lab.\n\nThis lab has no REST API of its own: Telegraf writes to Postgres and\nTimescaleDB over the wire protocol (not HTTP). The HTTP surface you can\ntest in Postman is Grafana's own API on http://localhost:3000.\n\nHow to use this collection\n  1. Import the companion environment (postman/postman_environment.json),\n     set it Active, and fill in adminUser / adminPassword from your repo's\n     .env file (GF_SECURITY_ADMIN_USER / GF_SECURITY_ADMIN_PASSWORD).\n  2. Run the requests top-to-bottom. Each one teaches one small idea and\n     has a Tests script that turns green only when the response is right.\n  3. Requests 01-06 are read-only. Requests 07-10 create and then delete a\n     temporary service account, so nothing permanent is left behind.\n\nWhat you'll see in order\n  01 no-auth call           02 basic auth           03 read datasources\n  04 find the dashboard     05 fetch dashboard JSON 06 live SQL->TimescaleDB\n  07 create service account 08 mint API token       09 bearer auth\n  10 cleanup\n\nThe 'auth ladder' 01 -> 02 -> 09 is the main idea: a public health endpoint,\nthen password auth, then a scoped machine token.\n\nDataset gotcha: the simulated ward ranges roughly 2026-01-01 .. 2026-02-01\n(live tail keeps advancing). Query 'now()' last-N-hours windows and you get\nnothing; request 06 deliberately reads the newest hour present instead.\n\nSee docs/postman.md for the full beginner guide.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 · Health check (no auth)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"health endpoint answers\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"database reports ok\", () => pm.expect(body.database).to.eql(\"ok\"));",
+              "console.log(\"Grafana version \" + body.version + \" · database \" + body.database);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "description": "The only request with no auth at all. Every other call needs a\ncredential of some kind. `/api/health` is deliberately public so monitoring\ntools can check Grafana is alive before logging in.\n\nPress Send. The Tests tab (green check to the right of the response) should\nshow 2 passing tests and the Console can show the version.\n\nExpected: 200 with { \\\"database\\\": \\\"ok\\\", \\\"version\\\": \\\"13.0.2\\\", ... }",
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/health" },
+        "auth": { "type": "noauth" }
+      }
+    },
+    {
+      "name": "02 · Who am I? (basic auth)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"basic auth works\", () => pm.response.to.have.status(200));",
+              "const who = pm.response.json();",
+              "pm.test(\"we are logged in as a Grafana admin\", () => pm.expect(who.isGrafanaAdmin).to.eql(true));",
+              "console.log(\"Logged in as \\\"\" + who.login + \"\\\" orgId=\" + who.orgId);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "description": "First call WITH credentials. Postman sends an Authorization header\nautomatically because you configured Basic auth here, using the environment\nvariables {{adminUser}} and {{adminPassword}}.\n\nInspect the Authorization section on the request tab to see the two {{ }}\nplaceholders - Postman swaps in the Active environment's values at send time.\n\nExpected: 200 with your Grafana admin info and \\\"isGrafanaAdmin\\\": true.\nIf this fails with 401, open the collection's eye icon (top right), select\nthe environment, and confirm adminUser / adminPassword match your .env.",
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/user" },
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "03 · Read the datasources",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"datasources listed\", () => pm.response.to.have.status(200));",
+              "const ds = pm.response.json();",
+              "pm.test(\"TimescaleDB datasource is present (uid \\\"timescale\\\")\", () => pm.expect(ds.some(d => d.uid === \"timescale\")).to.eql(true));",
+              "const found = ds.find(d => d.uid === \"timescale\");",
+              "console.log(found ? JSON.stringify(found) : \"not found\");"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "description": "Lists every data source Grafana knows about. There is exactly one: the\nprovisioned TimescaleDB/PostgreSQL datasource with uid \\\"timescale\\\" that\npoints at the timescaledb service on port 5432. This is the connection that\nwill later execute SQL on your behalf in request 06.\n\nExpected: 200 with an array whose first element has\n\\\"type\\\": \\\"grafana-postgresql-datasource\\\" and \\\"uid\\\": \\\"timescale\\\".",
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/datasources" },
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "04 · Find the Ward Vitals dashboard",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"dashboard search works\", () => pm.response.to.have.status(200));",
+              "const hits = pm.response.json();",
+              "pm.test(\"the Ward Vitals dashboard is indexed\", () => pm.expect(hits.some(h => h.uid === \"ward-vitals\")).to.eql(true));",
+              "const hit = hits.find(h => h.uid === \"ward-vitals\");",
+              "console.log(hit ? hit.url : \"not found\");"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "description": "Searches Grafana's index. The query parameter ?type=dash-db narrows the\nsearch to dashboards only. This is how an external tool would discover what\ndashboards exist before asking for one by uid.\n\nExpected: 200 with an array that includes an entry \\\"uid\\\": \\\"ward-vitals\\\".",
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/search?type=dash-db" },
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "05 · Fetch the dashboard JSON",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"dashboard fetched\", () => pm.response.to.have.status(200));",
+              "const dash = pm.response.json();",
+              "pm.test(\"title is Ward Vitals\", () => pm.expect(dash.dashboard.title).to.eql(\"Ward Vitals\"));",
+              "console.log(\"Panels: \" + (dash.dashboard.panels || dash.dashboard.rows || []).length);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "description": "Fetches the full dashboard definition as JSON: the same shape the UI uses\ninternally. Everything a dashboard is - panels, queries, variables - is\nmachine-readable, which is why dashboards can live in git.\n\nExpected: 200 with \\\"dashboard\\\".\\\"title\\\" == \\\"Ward Vitals\\\" and its panels list.",
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/dashboards/uid/ward-vitals" },
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "06 · Run live SQL against TimescaleDB",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"query API reachable\", () => pm.response.to.have.status(200));",
+              "const out = pm.response.json();",
+              "const frame = out.results.A && out.results.A.frames && out.results.A.frames[0];",
+              "pm.test(\"SQL executed and returned rows\", () => pm.expect(frame && frame.data.values.length > 0 && frame.data.values[0].length > 0).to.eql(true));",
+              "if (frame) console.log(\"Newest hour buckets: \" + frame.data.values[0].length);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "description": "The payoff: POST a SQL string and Grafana proxies it to TimescaleDB for\nyou. The body says \\\"query datasource uid=timescale, run this rawSql\".\n\nThe query is written so it ALWAYS has data regardless of when you run it:\nit aggregates the newest hour present in `vitals`, using\n`WHERE time = (SELECT max(time) FROM vitals)`. The lab's simulated clock\nticks forward from ~2026-02-01, so 'now()' queries would come back empty.\n\nExpected: 200 with results.A.status == 200 and one frame whose values carry\nthe timestamp, an hourly average heart rate, and a row count.\nTry editing rawSql in the Body tab to a query of your own - that is the\nwhole point of this request.",
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"from\": \"2026-01-01T00:00:00Z\",\n  \"to\": \"now\",\n  \"queries\": [{\n    \"refId\": \"A\",\n    \"datasource\": {\"type\": \"grafana-postgresql-datasource\", \"uid\": \"timescale\"},\n    \"rawSql\": \"SELECT time_bucket('1 hour', time) AS time, round(avg(heart_rate_bpm)::numeric,1) AS hr, count(*) AS n FROM vitals WHERE time = (SELECT max(time) FROM vitals) GROUP BY 1 ORDER BY 1\",\n    \"format\": \"time_series\",\n    \"intervalMs\": 60000,\n    \"maxDataPoints\": 100\n  }]\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/ds/query" },
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "07 · Create a service account",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"service account created\", () => pm.response.to.have.status(201));",
+              "const sa = pm.response.json();",
+              "pm.environment.set(\"serviceAccountId\", String(sa.id));",
+              "pm.test(\"named postman-lab with Viewer role\", () => pm.expect(sa.name === \"postman-lab\" && sa.role === \"Viewer\").to.eql(true));",
+              "console.log(\"Service account id \" + sa.id + \" (saved to serviceAccountId)\");"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "description": "Machines shouldn't log in with your human password; they get a dedicated\nidentity. A service account is that identity in Grafana.\n\nThis POST creates one named postman-lab with the read-only Viewer role.\nIt mutates Grafana, so it only appears when you run the collection - and\nrequest 10 deletes it again, leaving the instance exactly as it was.\n\nThe response's id is captured by the test script into the environment\nvariable serviceAccountId so request 08 can use it.\n\nExpected: 201 with {\\\"name\\\": \\\"postman-lab\\\", \\\"role\\\": \\\"Viewer\\\", \\\"id\\\": ...}.",
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"postman-lab\",\n  \"role\": \"Viewer\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/serviceaccounts" },
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "08 · Mint an API token for that account",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"token issued\", () => pm.response.to.have.status(200));",
+              "const tok = pm.response.json();",
+              "pm.environment.set(\"scopedToken\", tok.token);",
+              "pm.test(\"token looks like a Grafana glsa_ token\", () => pm.expect(String(tok.token)).to.match(/^glsa_/));",
+              "console.log(\"Token saved to environment variable scopedToken - request 09 uses it.\");"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "description": "A service account alone can't authenticate - it needs an API token.\nThis POST issues one (glsa_...) against the account created in 07, using\n{{serviceAccountId}} written by that request's test.\n\nThe token is a secret: Postman stores it in the scopedToken environmental\nvariable where it is masked (•••). It is shown to you exactly once by\nthe API by design.\n\nExpected: 200 with \\\"token\\\": \\\"glsa_...\\\" and the account id of 07.",
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"lab-token\",\n  \"secondsToLive\": null\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/serviceaccounts/{{serviceAccountId}}/tokens" },
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "09 · Use the scoped token (bearer auth)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"bearer token is accepted\", () => pm.response.to.have.status(200));",
+              "const orgs = pm.response.json();",
+              "pm.test(\"we see the main org as a Viewer\", () => pm.expect(orgs.map(o => o.id)).to.include(1));",
+              "console.log(\"Authenticated via scoped token, not the admin password.\");"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "description": "Same API, different credential. This request has NO basic-auth section;\nit sends an Authorization: Bearer header built from the {{scopedToken}}\nset by request 08.\n\nThis is the auth style you would embed in real code or a CI job - a\nrevocable token linked to one role instead of the admin password.\n\nExpected: 200 with the org list, proving the Viewer token can read orgs.",
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/orgs" },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            { "key": "token", "value": "{{scopedToken}}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "10 · Cleanup: delete the service account",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"service account deleted\", () => { pm.response.to.be.oneOf([200, 204]); });",
+              "pm.environment.unset(\"scopedToken\");",
+              "pm.environment.unset(\"serviceAccountId\");",
+              "console.log(\"Cleaned up. The instance is back to its pre-collection state.\");"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "description": "Tidies up the identity created in 07/08 and clears the environment\nvariables so no token lingers. Run this whenever you finish.\n\nExpected: 200/204 with a confirmation message.",
+        "method": "DELETE",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/serviceaccounts/{{serviceAccountId}}" },
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{adminUser}}", "type": "string" },
+            { "key": "password", "value": "{{adminPassword}}", "type": "string" }
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" }
+  ]
+}

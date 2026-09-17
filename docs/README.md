@@ -17,6 +17,7 @@ patient data**.
 | [Security](security.md) | Secrets handling, current posture, weak spots, hardening |
 | [Testing](testing.md) | Test suite, invariants, how to run the gates |
 | [CI/CD](ci_cd.md) | Current state (none) and a blueprint pipeline |
+| [Postman walkthrough](postman.md) | Beginner guide to testing the Grafana API; collection in `postman/` |
 
 ## Quick start
 
