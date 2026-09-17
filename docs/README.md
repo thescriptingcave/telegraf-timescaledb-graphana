@@ -11,6 +11,7 @@ patient data**.
 | [Data flow](data_flow.md) | Where data comes from and how it moves through the pipeline |
 | [Data model](data_model.md) | Tables, hypertables, views, aggregates, compression, IDs |
 | [Synthetic data](synthetic_data.md) | How the deterministic dataset is generated and controlled |
+| [SQL lessons](../sql/dql/README.md) | Course map and index of the read-only SQL curriculum |
 | [Infrastructure](infrastructure.md) | Docker Compose services, env vars, Makefile, boot sequence |
 | [Reliability](reliability.md) | Idempotency, checkpointing, failure modes, verification |
 | [Security](security.md) | Secrets handling, current posture, weak spots, hardening |

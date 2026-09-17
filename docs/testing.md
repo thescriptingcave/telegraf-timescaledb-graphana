@@ -13,7 +13,7 @@ uv run ruff check .  # lint (imports unused, style, sanity)
 
 From the Makefile: `make test`, `make lint`.
 
-Both gates are green on `main` (67 tests passing at the time of writing).
+Both gates are green on `main` (97 tests passing at the time of writing).
 
 ## Suite map (`tests/`)
 

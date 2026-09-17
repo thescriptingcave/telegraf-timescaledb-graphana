@@ -16,8 +16,9 @@ end-to-end on a laptop.
   into the same **TimescaleDB** hypertable.
 - Renders a **Grafana dashboard** (native Postgres datasource) showing live
   and historical vitals, derived vitals, and hourly rollups.
-- Ships a **curriculum of read-only SQL lessons** (beginner / intermediate /
-  advanced) against the real dataset.
+- Ships a **curriculum of 23 read-only SQL lessons** (beginner / intermediate /
+  advanced) against the real dataset, indexed in
+  [`sql/dql/README.md`](../sql/dql/README.md).
 
 ### Simulation realism delivered
 - Physiology engine with mean reversion, circadian modulation, and

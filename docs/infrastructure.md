@@ -112,6 +112,7 @@ docker-compose.yml               service definitions
 .env / .env.example              config + secrets (example committed)
 sql/ddl/00_init.sql              schema, applied at boot + idempotently
 sql/dql/<tier>/                  read-only SQL lessons
+sql/dql/README.md                course map + lesson index
 infra/telegraf/                  Telegraf image + config
 grafana/provisioning/            datasource, provider, dashboard JSON
 scripts/                         backfill, live producer, init, verify, registry

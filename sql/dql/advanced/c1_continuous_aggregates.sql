@@ -48,7 +48,7 @@ JOIN manual_hourly m
    AND m.mrn = h.mrn
 WHERE h.mrn = 'W10001'
   AND ROUND(ABS(h.spo2_pct - m.spo2_pct)::NUMERIC, 4) > 0.0001
-ORDER BY h.bucket
+ORDER BY h.bucket;
 
 -- Fast monthly summary straight off the continuous aggregate:
 SELECT
