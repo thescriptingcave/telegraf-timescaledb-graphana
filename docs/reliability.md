@@ -86,9 +86,10 @@ gate accepts 70–95%.
    `vitals`. The check therefore derives the backfill-observed count from
    `readings` and bounds it by the current vitals total, so verification
    passes while streaming.
-2. `state/` is `chmod 777` on the host because the Telegraf container's
-   `telegraf` user (uid 100) must write the mounted directory. Acceptable for
-   a local lab; not a hardening measure (see [Security](security.md)).
+2. `state/` is `chmod 755` on the host. The Telegraf container runs as root,
+   so bind-mount writes just work; world-write (`777`) is unnecessary and was
+   removed. The open hardening item is running the exec plugin as an
+   unprivileged user (see [Security](security.md)).
 
 ## References
 

@@ -17,7 +17,10 @@
 --
 -- We read from vitals_truth so the episodes reflect true physiology, free
 -- of device noise. Naomi (W10001) is the progressive-hypoxemia patient.
--- Adjust the mrn or remove the filter to run every patient.
+-- The run is bounded to the first three days so the recursion stays snappy
+-- (every day has many low ticks; an unbounded run over the whole month takes
+-- roughly fifteen minutes because each recursive step re-scans the seed).
+-- Adjust the mrn or widen/remove the time bound to explore other patients.
 -- ============================================================================
 
 WITH RECURSIVE low_ticks AS (
@@ -30,6 +33,8 @@ WITH RECURSIVE low_ticks AS (
     FROM vitals_truth
     WHERE patient_id = (SELECT patient_id FROM patients WHERE mrn = 'W10001')
       AND spo2_pct < 94
+      AND time >= TIMESTAMPTZ '2026-01-01'
+      AND time <  TIMESTAMPTZ '2026-01-04'
 ),
 episodes AS (
     SELECT

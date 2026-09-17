@@ -37,8 +37,8 @@ attacks, insider attacks on a disposable lab.
 - README and code documents state plainly: **all data is synthetic**.
 - The ward registry (`scripts/ward_registry.py`) is the single source of
   truth for the six fictional patients; no external data is ingested.
-- An early FHIR prototype was moved to `archive/` and is not part of the
-  active data plane — no clinical interoperability code runs.
+- An early FHIR prototype was removed during development; no clinical
+  interoperability code runs in this lab.
 
 ### Least-privilege posture (partial)
 - TimescaleDB exposes only the app database (`POSTGRES_DB`); connection
@@ -56,9 +56,9 @@ attacks, insider attacks on a disposable lab.
 | No TLS | Grafana and Postgres are plaintext | Localhost-only or VPN for anything shared |
 | Grafana default auth | Admin from `.env`; no SSO/MFA | Long random password; don't share |
 | DB superuser used for dashboards | Grafana logs in as `POSTGRES_USER` (superuser) | Create a read-only Grafana role for tighter setups |
-| `state/` is world-writable | `chmod 777` so the container's `telegraf` uid can write checkpoints | Restrict host ownership or mount with `uid`/`gid` for the telegraf user |
-| Exec plugin runs in stream | Telegraf executes `python3` inside the container | Confine to the read-only-mounted scripts/src; consider dropping caps |
-| Image supply chain | Pinned-ish public images (`:latest` for Grafana, versioned TS/Telegraf) | Pin SHA digests, scan with `docker scout` / Trivy |
+| `state/` host perms | `chmod 755` (world-write was never needed: the Telegraf container runs as root, so the bind mount is writable either way) | Revisit ownership if the exec plugin is moved to an unprivileged user |
+| Exec plugin runs in stream | Telegraf executes `python3` inside the container as root | Confine to the read-only-mounted scripts/src; consider dropping caps / a dedicated user |
+| Image supply chain | Pinned-ish public images (Grafana now pinned by digest, versioned TS/Telegraf) | Scan with `docker scout` / Trivy in CI (see [`ci_cd.md`](ci_cd.md)) |
 | Python dependencies | Only `psycopg`, `python-dotenv` + dev deps | `uv.lock`; audit with `uv audit` |
 
 ## Recommended hardening (if this moved toward shared / prod-like use)
@@ -67,8 +67,9 @@ attacks, insider attacks on a disposable lab.
    (reverse proxy + certs) for Grafana.
 2. Create a **dedicated read-only Postgres role** for Grafana and a write-only
    role for Telegraf (own schema), instead of the superuser everywhere.
-3. Drop the `chmod 777` on `state/`: remount the volume with the container
-   uid/gid, or run Telegraf's exec as a dedicated unprivileged user.
+3. Run Telegraf's exec — and the `python3` stream — as a dedicated
+   unprivileged user, then grant that user ownership of the `state/` mount
+   (currently 755 and written as container root).
 4. Add an **image policy**: pinned digests + `docker scout cve` /
    Trivy scan in the CI gate (see [`ci_cd.md`](ci_cd.md)).
 5. Add cross-checks that **prove synthetic data flow**: assert no real-world

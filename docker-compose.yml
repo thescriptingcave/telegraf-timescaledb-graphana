@@ -38,7 +38,7 @@ services:
         condition: service_healthy
 
   grafana:
-    image: grafana/grafana-oss:latest
+    image: grafana/grafana-oss@sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2
     env_file: .env
     environment:
       GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}

@@ -122,8 +122,8 @@ same patients/events. See [Data model](data_model.md).
 - Fictional names and MRNs (`W1xxxx`), flagged in code and docs.
 - Every artifact descends from the registry — there is no external import
   path, so nothing real can accidentally enter the pipeline.
-- An early FHIR prototype lives in `archive/` and is not wired into the data
-  flow.
+- No clinical interoperability (FHIR/HL7) code is present; a prototype was
+  removed during development.
 
 ## References
 

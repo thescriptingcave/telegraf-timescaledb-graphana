@@ -115,7 +115,6 @@ sql/dql/<tier>/       read-only lessons (beginner/intermediate/advanced)
 sql/dql/README.md     course map + lesson index
 scripts/              orchestrators (init, generate, stream, verify, registry)
 src/healthcare_timeseries_lab/  simulation library
-archive/              non-active prototype (FHIR), intentionally not wired in
 state/                live-checkpoint volume (gitignored)
 ```
 

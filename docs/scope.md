@@ -42,10 +42,9 @@ end-to-end on a laptop.
 - **Real patient data or any clinical use.** Nothing in this lab can or should
   inform care.
 - **Production / multi-host deployment.** Single Docker Compose host only.
-- **FHIR/HL7 interoperability.** An early prototype
-  (`archive/fhir_models_original.py`) was consciously dropped from the active
-  codebase; the lab stores telemetry in TimescaleDB's relational schema, not
-  FHIR resources.
+- **FHIR/HL7 interoperability.** An early prototype was consciously dropped
+  and removed from the codebase; the lab stores telemetry in TimescaleDB's
+  relational schema, not FHIR resources.
 - **Alerting / paging.** No Alertmanager, PagerDuty, or notification channels.
 - **Authn/authz beyond defaults.** Grafana admin credentials come from `.env`;
   no SSO, no LDAP, no multi-tenancy.

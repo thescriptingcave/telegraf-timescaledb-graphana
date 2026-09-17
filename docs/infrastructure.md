@@ -10,7 +10,7 @@ match the `Makefile` targets.
 | --- | --- | --- | --- | --- |
 | `timescaledb` | `timescale/timescaledb:2.29.2-pg17` | `5432:5432` | `timescale_data` (named), `./sql/ddl` → `/docker-entrypoint-initdb.d` | `pg_isready` |
 | `telegraf` | build `./infra/telegraf` | – | `./state` → `/app/state`, `telegraf.conf` (ro), `./scripts` → `/app/scripts` (ro), `./src` → `/app/src` (ro) | depends on TS **healthy** |
-| `grafana` | `grafana/grafana-oss:latest` | `3000:3000` | `./grafana/provisioning` (ro) | depends on TS **healthy** |
+| `grafana` | `grafana/grafana-oss@sha256:5dad0df1…` (13.0.2, pinned) | `3000:3000` | `./grafana/provisioning` (ro) | depends on TS **healthy** |
 
 `docker-compose.yml`:
 
